@@ -1,141 +1,112 @@
-// implement your API here
-// implement your API here
 const express = require("express");
 const db = require("./data/db.js");
-
 const server = express();
 
 server.use(express.json());
 
-//get
+server.post("/api/users", (req, res) => {
+    const newUser = req.body;
+    const { name, bio } = req.body;
 
-server.get("/api/users", (request, response) => {
-  db.find()
-    .then(hubs => {
-      response.status(200).json(hubs);
-    })
-    .catch(err => {
-      response.status(500).json({ success: false, err });
+    if (name && bio) {
+        db.insert(newUser)
+            .then(addedUser => {
+                res.status(201).json(addedUser);
+            })
+            .catch(err => {
+                res.status(500).json({
+                    error:
+                        "There was an error while saving the user to the database"
+                });
+            });
+    } else {
+        res.status(400).json({
+            error: "Please provide name and bio for the user."
+        });
+    }
+});
+
+server.get("/", (req, res) => {
+    res.send("Hello World!");
+});
+
+server.get("/api/users", (req, res) => {
+    db.find().then(allUsers => {
+        if (allUsers) {
+            res.json(allUsers);
+        } else {
+            res.status(500).json({
+                error: "The users information could not be retrieved."
+            });
+        }
     });
 });
 
-server.get("/api/users/:id", (request, response) => {
-  const { id } = request.params;
-
-  db.findById(id)
-    .then(user => {
-      if (user) {
-        response.status(201).json({ user });
-      } else {
-        response
-          .status(400)
-          .json({ error: "The user with the id ${id} does not exist." });
-      }
-    })
-    .catch(err => {
-      response
-        .status(500)
-        .json({ error: "An error occured getting the user info" });
-    });
+server.get("/api/users/:id", (req, res) => {
+    const { id } = req.params;
+    db.findById(id)
+        .then(foundUser => {
+            if (foundUser) {
+                db.findById(id).then(res.status(201).json(foundUser));
+            } else {
+                res.status(404).json({
+                    error: "The user with the specified ID does not exist."
+                });
+            }
+        })
+        .catch(err => {
+            res.status(404).json({
+                error: err,
+                message: "The user information could not be retrieved"
+            });
+        });
 });
-
-//post
-
-server.post("/api/users", (request, response) => {
-  const { name, bio } = request.body;
-  if (!name || !bio) {
-    return response
-      .status(400)
-      .json({ error: "Please provide name and bio for the user." });
-  }
-  db.insert({ name, bio })
-    .then(res => {
-      const { id } = res;
-      db.findById(id).then(user => {
-        response.status(201).json(user);
-      });
-    })
-    .catch(err => {
-      response
-        .status(400)
-        .json({ errorMessage: "Please provide the name and bio for the user" });
-    });
-});
-
-// DELETE
 
 server.delete("/api/users/:id", (req, res) => {
-  db.remove(req.params.id)
-    .then(count => {
-      if (count && count > 0) {
-        res.status(200).json({
-          message: "the user was deleted."
+    const { id } = req.params;
+    db.remove(id)
+        .then(deletedUser => {
+            if (deletedUser) {
+                db.remove(id).then(res.status(201).json(deletedUser));
+            } else {
+                res.status(404).json({
+                    error: "The user with the specified ID does not exist."
+                });
+            }
+        })
+        .catch(err => {
+            res.status(500).json({ error: "The user could not be removed" });
         });
-      } else {
-        res.status(404).json({
-          message: "The user with the specified ID does not exist."
-        });
-      }
-    })
-    .catch(() => {
-      res.status(500).json({
-        errorStatus: "The user could not be removed"
-      });
-    });
 });
-// PUT
-
-// server.put("/api/users/:id", (request, response) => {
-//   const { id } = request.params;
-//   const { name, bio } = request.body;
-//   if (!name || !bio) {
-//     return response
-//       .status(400)
-//       .json({ error: "Please provide name and bio for the user." });
-//   }
-
-//   db.update({ name, bio, id })
-//     .then(user => {
-//       if (user) {
-//         response.status(201).json({ user });
-//       } else {
-//         response
-//           .status(400)
-//           .json({ error: `The user with the id ${id} does not exist.` });
-//       }
-//     })
-//     .catch(err => {
-//       response
-//         .status(500)
-//         .json({ error: "An error occured getting the user info" });
-//     });
-// });
 
 server.put("/api/users/:id", (req, res) => {
-  const { name, bio } = req.body;
-  if (!name || !bio) {
-    res.status(400).json({
-      errorStatus: "Please provide name and bio for the user."
-    });
-  } else {
-    db.update(req.params.id, req.body)
-      .then(user => {
-        if (user) {
-          res.status(200).json(user);
-        } else {
-          res.status(404).json({
-            message: "The user with the specified ID does not exist."
-          });
-        }
-      })
-      .catch(() => {
-        res.status(500).json({
-          errorStatus: "The user information could not be modified."
+    const { id } = req.params;
+    const changes = req.body;
+    const { name, bio } = req.body;
+
+    if (name && bio) {
+        db.update(id, changes)
+            .then(changes => {
+                if (changes) {
+                    db.findById(id).then(userUpdate => {
+                        res.status(201).json(userUpdate);
+                    });
+                } else {
+                    res.status(400).json({
+                        error: "The user with the specified ID does not exist"
+                    });
+                }
+            })
+            .catch(err => {
+                res.status(404).json({
+                    error: "The user information could not be modified."
+                });
+            });
+    } else {
+        res.status(400).json({
+            errorMessage: "Please provide name and bio for the user."
         });
-      });
-  }
+    }
 });
 
-server.listen(8000, () => {
-  console.log("server is running on port 8000");
-});
+server.listen(7000, () => console.log(`Listening on port 7000`));
